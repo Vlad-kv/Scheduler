@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE InstanceSigs        #-}
+{-# LANGUAGE InstanceSigs      #-}
 
 module Lib
     ( projectParser
@@ -26,6 +26,7 @@ data Task = Task
     , taskId         :: TaskId
     , taskParameters :: [TaskParameter]
     , taskParent     :: Maybe TaskId
+    , taskScript     :: Text
     } deriving (Eq, Show)
 
 newtype ExperimentId = ExperimentId Integer deriving (Eq)
@@ -62,21 +63,38 @@ skipManySpaces  = skipMany  spaceSymbol
 skipMany1Spaces :: Parser ()
 skipMany1Spaces = skipMany1 spaceSymbol
 
-quotedText :: Parser Text
-quotedText = do
-    skipManySpaces
-    char '"'
-    str <- P.takeWhile $ (/=) '"'
-    char '"'
+quotedTextWithoutQuotes :: Parser Text
+quotedTextWithoutQuotes = do
+    skipManySpaces >> char '\"'
+    str <- P.takeWhile $ (/=) '\"'
+    char '\"'
     return str
+
+quotedText :: Parser Text
+quotedText =
+    skipManySpaces >> char '"' >>
+    let takeQuotedChar = notChar '\"' >>= \c ->
+                            case c of
+                                '\\' -> anyChar
+                                _    -> pure c
+    in
+    let textPart = takeQuotedChar >>= \c -> (P.takeWhile $ not . inClass "\\\"") >>=
+            \text -> pure $ T.cons c text
+    in
+    do
+    strings <- many' textPart
+    char '\"'
+    return $ T.concat strings
+
+screenText :: Text -> Text
+screenText = T.concatMap (\c -> if (inClass "\\\"" c) then pack ['\\', c]
+                                else T.singleton c)
 
 taskParameterParser :: Parser TaskParameter
 taskParameterParser = do
-    skipManySpaces
-    string "Param"
-    skipMany1Spaces
-    name  <- quotedText
-    value <- quotedText
+    skipManySpaces >> string "Param" >> skipMany1Spaces
+    name  <- quotedTextWithoutQuotes
+    value <- quotedTextWithoutQuotes
     return TaskParameter
             { taskParameterName  = name
             , taskParameterValue = value
@@ -88,12 +106,12 @@ parentParser = (<|>) (skipManySpaces >> string "Parent" >> skipMany1Spaces >> de
 
 taskParser :: Parser Task
 taskParser = do
-    skipManySpaces
-    string "Task"
-    skipMany1Spaces
-    name       <- quotedText
+    skipManySpaces >> string "Task" >> skipMany1Spaces
+    name       <- quotedTextWithoutQuotes
     skipManySpaces
     id         <- decimal
+    skipManySpaces >> string "Script" >> skipMany1Spaces
+    script     <- quotedText
     parent     <- parentParser
     parameters <- many' taskParameterParser
     return Task
@@ -101,15 +119,14 @@ taskParser = do
             , taskId         = TaskId id
             , taskParameters = parameters
             , taskParent     = TaskId <$> parent
+            , taskScript     = script
             }
 
 edgeParser :: Parser Edge
 edgeParser = do
     skipManySpaces
     s <- decimal
-    skipManySpaces
-    string "->"
-    skipManySpaces
+    skipManySpaces >> string "->" >> skipManySpaces
     d <- decimal
     return Edge
             { edgeSrc  = TaskId s
@@ -118,14 +135,12 @@ edgeParser = do
 
 experimentParser :: Parser Experiment
 experimentParser = do
+    skipManySpaces >> string "Experiment" >> skipMany1Spaces
+    name   <- quotedTextWithoutQuotes
     skipManySpaces
-    string "Experiment"
-    skipMany1Spaces
-    name       <- quotedText
-    skipManySpaces
-    id         <- decimal
-    parent     <- parentParser
-    graph      <- many' edgeParser
+    id     <- decimal
+    parent <- parentParser
+    graph  <- many' edgeParser
     return Experiment
             { experimentName   = name
             , experimentId     = ExperimentId id
@@ -135,9 +150,8 @@ experimentParser = do
 
 projectParser :: Parser Project
 projectParser = do
-    string "Project"
-    skipMany1Spaces
-    name       <- quotedText
+    string "Project" >> skipMany1Spaces
+    name       <- quotedTextWithoutQuotes
     tasks      <- many' taskParser
     experimens <- many' experimentParser
     return Project
@@ -158,8 +172,8 @@ showParent m = case m of Just parent -> pack $ "    Parent " ++ (show parent) ++
                          _           -> ""
 
 taskToText :: Task -> Text
-taskToText t = T.concat $ [ "Task \"", taskName t, "\" "
-                          , pack $ show $ taskId t, "\n"
+taskToText t = T.concat $ [ "Task \"", taskName t, "\" ", pack $ show $ taskId t, "\n"
+                          , "    Script \"", screenText $ taskScript t, "\"\n"
                           , showParent $ taskParent t]
                           ++ (map taskParameterToText $ taskParameters t)
 
