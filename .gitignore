@@ -1,5 +1,4 @@
 .stack-work/
-Scheduler.cabal
 dist/
 dist-newstyle/
 *~
