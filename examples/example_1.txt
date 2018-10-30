@@ -8,8 +8,10 @@ Task "second" 2
     Script "cd \"..\";2.exe"
     Param "s" "qwert"
 Experiment "first exp" 1
+    [1, 2]
     1 -> 2
     10 -> 12
 Experiment "second exp" 2
     Parent 1
+    []
     2 -> 1
