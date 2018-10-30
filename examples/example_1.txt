@@ -1,0 +1,15 @@
+Project "Test project"
+Task "first" 1
+    Script "1.exe"
+    Parent 2
+    Param "n" "10"
+    Param "k" "2"
+Task "second" 2
+    Script "cd \"..\";2.exe"
+    Param "s" "qwert"
+Experiment "first exp" 1
+    1 -> 2
+    10 -> 12
+Experiment "second exp" 2
+    Parent 1
+    2 -> 1
