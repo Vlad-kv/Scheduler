@@ -123,7 +123,7 @@ experimentParser = do
             , experimentId     = ExperimentId id
             , experimentParent = ExperimentId <$> parent
             , experimentNodes  = nodes
-            , experimentGraph  = graph
+            , experimentEdges  = graph
             }
 
 projectParser :: Parser Project
@@ -162,7 +162,7 @@ experimentToText e = T.concat $ [ "Experiment \"", experimentName e, "\" ", pack
                                 , showParent $ experimentParent e
                                 , let (_, ids) = unzip $ M.toList $ experimentNodes e in
                                   pack $ "    " ++ (show ids) ++ "\n"]
-                                ++ (map (\edge -> pack $ "    " ++ (show edge) ++ "\n") $ experimentGraph e)
+                                ++ (map (\edge -> pack $ "    " ++ (show edge) ++ "\n") $ experimentEdges e)
 
 projectToText :: Project -> Text
 projectToText proj = T.concat $ "Project \"" : projectName proj : "\"\n"

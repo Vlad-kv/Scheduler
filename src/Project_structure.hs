@@ -52,7 +52,7 @@ data Experiment = Experiment
     , experimentId     :: ExperimentId
     , experimentParent :: Maybe ExperimentId
     , experimentNodes  :: Map NodeId TaskId
-    , experimentGraph  :: [Edge]
+    , experimentEdges  :: [Edge]
     } deriving (Eq, Show)
 
 data Project = Project
