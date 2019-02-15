@@ -1,9 +1,16 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Work_with_graph
     ( Graph(..)
     , graphFromEdges
     , graphFromExperiment
     , findCycle
-    )where
+    , TopologicalQueue(..)
+    , createTopologicalQueue
+    , tqTakeFreeNode
+    , tqAcceptNode
+    , tqIsStopped
+    ) where
 
 import Project_structure
 
@@ -17,6 +24,10 @@ import Control.Monad.Trans.State
 
 import Data.List.NonEmpty(NonEmpty(..))
 import qualified Data.List.NonEmpty as N
+
+import qualified Data.List as L
+
+import Data.Foldable(fold)
 
 import Control.Monad.Trans.Class(lift)
 
@@ -37,7 +48,7 @@ graphFromEdges nodesSize edges = Graph $ foldl addEdge (initMap nodesSize) edges
         initMap size = M.fromList $ map (\val -> (NodeId val, [])) [1..size]
 
         addEdge :: Map NodeId [NodeId] -> Edge -> Map NodeId [NodeId]
-        addEdge m e = M.update (\l -> Just $ edgeDest e : l) (edgeSrc e) m
+        addEdge m e = M.adjust (\l -> edgeDest e : l) (edgeSrc e) m
 
 graphFromExperiment :: Experiment -> Graph
 graphFromExperiment exp = graphFromEdges (toInteger $ M.size $ experimentNodes exp) $ experimentEdges exp
@@ -63,3 +74,64 @@ findCycle (Graph g) = let res = evalStateT (foldl
                             ) >> (modify $ M.insert cur False)
                 Just True -> lift $ Left $ cur :| (reverse $ takeWhile (/= cur) t)
                 Just False -> return ()
+
+-- TODO Добавить проверки и возврат ошибок.
+
+data TopologicalQueue = TopologicalQueue
+    { tqGraph           :: Graph
+    , tqNodesScores     :: Map NodeId Integer
+    , tqQueue           :: [NodeId]
+    , tqNumNodesToWait  :: Int
+    , tqNumBlockedNodes :: Int
+    } deriving (Eq, Show)
+
+createTopologicalQueue :: Graph -> TopologicalQueue
+createTopologicalQueue (Graph g) =
+    TopologicalQueue
+        { tqGraph           = Graph g
+        , tqNodesScores     = scores
+        , tqQueue           = queue
+        , tqNumNodesToWait  = 0
+        , tqNumBlockedNodes = length queue
+        }
+    where
+        scores :: Map NodeId Integer
+        scores = foldl (\scores id -> M.adjust (+ 1) id scores) initialNodesScores (fold $ M.elems g)
+
+        queue :: [NodeId]
+        queue = M.keys $ M.filter ( > 0) scores
+
+        initialNodesScores :: Map NodeId Integer
+        initialNodesScores = M.fromList $ map (\val -> (NodeId val, 0)) [1..(toInteger $ M.size g)]
+
+tqTakeFreeNode :: TopologicalQueue -> (Maybe NodeId, TopologicalQueue)
+tqTakeFreeNode tq@(TopologicalQueue{..}) =
+    case tqQueue of
+        [] -> (Nothing, tq)
+        h : t -> (return h, tq {
+                tqQueue = t
+              , tqNumNodesToWait = tqNumNodesToWait + 1
+            })
+
+tqAcceptNode :: TopologicalQueue -> NodeId -> TopologicalQueue
+tqAcceptNode tq@(TopologicalQueue{ tqGraph = Graph graph, ..}) id =
+    let (scores, newFreeNodes) = foldl updScores (tqNodesScores, []) (graph M.! id) in
+    tq {
+        tqQueue = newFreeNodes ++ tqQueue
+      , tqNodesScores = scores
+      , tqNumNodesToWait = tqNumNodesToWait - 1
+      , tqNumBlockedNodes = tqNumBlockedNodes - length newFreeNodes
+    }
+    where
+        updScores :: (Map NodeId Integer, [NodeId]) -> NodeId -> (Map NodeId Integer, [NodeId])
+        updScores (scores, newFreeNodes) id =
+            ( M.adjust (subtract 1) id scores
+            , case scores M.! id of
+                1 -> id : newFreeNodes
+                _ -> newFreeNodes
+            )
+
+tqIsStopped :: TopologicalQueue -> Bool
+tqIsStopped TopologicalQueue{..} = (tqNumNodesToWait == 0) && (length tqQueue == 0)
+
+
