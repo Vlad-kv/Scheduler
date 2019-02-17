@@ -9,6 +9,7 @@ module Work_with_graph
     , createTopologicalQueue
     , tqTakeFreeNode
     , tqAcceptNode
+    , tqFreezeNode
     , tqIsStopped
     ) where
 
@@ -99,7 +100,7 @@ createTopologicalQueue (Graph g) =
         scores = foldl (\scores id -> M.adjust (+ 1) id scores) initialNodesScores (fold $ M.elems g)
 
         queue :: [NodeId]
-        queue = M.keys $ M.filter ( > 0) scores
+        queue = M.keys $ M.filter ( == 0) scores
 
         initialNodesScores :: Map NodeId Integer
         initialNodesScores = M.fromList $ map (\val -> (NodeId val, 0)) [1..(toInteger $ M.size g)]
@@ -113,8 +114,8 @@ tqTakeFreeNode tq@(TopologicalQueue{..}) =
               , tqNumNodesToWait = tqNumNodesToWait + 1
             })
 
-tqAcceptNode :: TopologicalQueue -> NodeId -> TopologicalQueue
-tqAcceptNode tq@(TopologicalQueue{ tqGraph = Graph graph, ..}) id =
+tqAcceptNode :: NodeId -> TopologicalQueue -> TopologicalQueue
+tqAcceptNode id tq@(TopologicalQueue{ tqGraph = Graph graph, ..}) =
     let (scores, newFreeNodes) = foldl updScores (tqNodesScores, []) (graph M.! id) in
     tq {
         tqQueue = newFreeNodes ++ tqQueue
@@ -131,7 +132,8 @@ tqAcceptNode tq@(TopologicalQueue{ tqGraph = Graph graph, ..}) id =
                 _ -> newFreeNodes
             )
 
+tqFreezeNode :: NodeId -> TopologicalQueue -> TopologicalQueue
+tqFreezeNode _ tq = tq{ tqNumNodesToWait = (tqNumNodesToWait tq) - 1 }
+
 tqIsStopped :: TopologicalQueue -> Bool
 tqIsStopped TopologicalQueue{..} = (tqNumNodesToWait == 0) && (length tqQueue == 0)
-
-
