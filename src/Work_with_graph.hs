@@ -21,7 +21,7 @@ import qualified Data.Text as T
 import Data.Map (Map)
 import qualified Data.Map as M
 
-import Control.Monad.Trans.State
+import Control.Monad.State
 
 import Data.List.NonEmpty(NonEmpty(..))
 import qualified Data.List.NonEmpty as N
@@ -29,8 +29,6 @@ import qualified Data.List.NonEmpty as N
 import qualified Data.List as L
 
 import Data.Foldable(fold)
-
-import Control.Monad.Trans.Class(lift)
 
 newtype Graph = Graph (Map NodeId [NodeId]) deriving (Eq, Ord)
 
