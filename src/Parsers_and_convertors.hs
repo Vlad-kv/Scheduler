@@ -136,8 +136,8 @@ projectParser = do
     endOfInput
     return Project
             { projectName        = name
-            , projectTasks       = tasks
-            , projectExperiments = experimens
+            , projectTasks       = M.fromList $ map (\t -> (taskId t, t)) tasks
+            , projectExperiments = M.fromList $ map (\e -> (experimentId e, e)) experimens
             }
 
 taskParameterToText :: TaskParameter -> Text
@@ -166,5 +166,5 @@ experimentToText e = T.concat $ [ "Experiment \"", experimentName e, "\" ", pack
 
 projectToText :: Project -> Text
 projectToText proj = T.concat $ "Project \"" : projectName proj : "\"\n"
-                                :  (map taskToText $ projectTasks proj)
-                                ++ (map experimentToText $ projectExperiments proj)
+                                :  (map taskToText $ M.elems $ projectTasks proj)
+                                ++ (map experimentToText $ M.elems $ projectExperiments proj)

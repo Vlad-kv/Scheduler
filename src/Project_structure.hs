@@ -19,7 +19,7 @@ data TaskParameter = TaskParameter
     , taskParameterValue :: Text
     } deriving (Eq, Show)
 
-newtype TaskId = TaskId Integer deriving (Eq)
+newtype TaskId = TaskId Integer deriving (Eq, Ord)
 instance Show TaskId where
     show (TaskId id) = show id
 
@@ -31,7 +31,7 @@ data Task = Task
     , taskScript     :: Text
     } deriving (Eq, Show)
 
-newtype ExperimentId = ExperimentId Integer deriving (Eq)
+newtype ExperimentId = ExperimentId Integer deriving (Eq, Ord)
 instance Show ExperimentId where
     show (ExperimentId id) = show id
 
@@ -57,6 +57,6 @@ data Experiment = Experiment
 
 data Project = Project
     { projectName        :: Text
-    , projectTasks       :: [Task]
-    , projectExperiments :: [Experiment]
+    , projectTasks       :: Map TaskId Task
+    , projectExperiments :: Map ExperimentId Experiment
     } deriving (Eq, Show)
