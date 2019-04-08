@@ -41,6 +41,7 @@ library
     , containers
     , mtl
     , process
+    , gtk3
   default-language: Haskell2010
 
 executable Scheduler-exe
